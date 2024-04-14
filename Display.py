@@ -1,7 +1,6 @@
 from machine import Pin,SPI
 import framebuf
 import time
-import gc
 
 DC = 8
 RST = 12
@@ -9,10 +8,13 @@ MOSI = 11
 SCK = 10
 CS = 9
 
-class Screen(framebuf.FrameBuffer):
+class Display(framebuf.FrameBuffer):
+    WIDTH = 128
+    HEIGHT = 64
+    HALF_WIDTH = WIDTH/2
+    HALF_HEIGHT = HEIGHT/2
+    
     def __init__(self):
-        self.width = 128
-        self.height = 64 
         self.cs = Pin(CS,Pin.OUT)
         self.rst = Pin(RST,Pin.OUT)
         self.cs(1)
@@ -21,8 +23,8 @@ class Screen(framebuf.FrameBuffer):
         self.spi = SPI(1,20000_000,polarity=0, phase=0,sck=Pin(SCK),mosi=Pin(MOSI),miso=None)
         self.dc = Pin(DC,Pin.OUT)
         self.dc(1)
-        self.buffer = bytearray(self.height * self.width // 8)
-        super().__init__(self.buffer, self.width, self.height, framebuf.MONO_HMSB)
+        self.buffer = bytearray(Display.HEIGHT * Display.WIDTH // 8)
+        super().__init__(self.buffer, Display.WIDTH, Display.HEIGHT, framebuf.MONO_HMSB)
         self.init_display()
         self.white =   0xffff
         self.black =   0x0000
@@ -82,14 +84,13 @@ class Screen(framebuf.FrameBuffer):
             self.write_cmd(0x10 + (self.column >> 4))
             for num in range(0,16):
                 self.write_data(self.buffer[page*16+num])
-        gc.collect()
 
     def center(self, text, height, color):
-        self.text(text, int(self.width/2)-4*len(text),height,color)
+        self.text(text, int(Display.WIDTH/2)-4*len(text),height,color)
         self.show()
 
     def animation(self):
-        for i in range(0, self.width, 16):
+        for i in range(0, Display.WIDTH, 16):
             self.rect(i,48,14,14,self.white)
             self.show()   
         for i in range(48, 0, -16):
@@ -98,6 +99,6 @@ class Screen(framebuf.FrameBuffer):
         for i in range(112, 0, -16):
             self.rect(i,0,14,14,self.white)
             self.show() 
-        for i in range(0, self.height, 16):
+        for i in range(0, Display.HEIGHT, 16):
             self.rect(0,i,14,14,self.white)
             self.show()

@@ -1,20 +1,23 @@
 from machine import Pin,SPI
-import Asteroids
-import Display
+from Asteroid import Asteroid
+from Asteroid import AsteroidStats
+from Stars import Stars
+from Bullet import Bullet
+from Ship import Ship
+from Collision import Collision
+from Display import Display
 import random
-import math
 import time
-import gc
 
 class Game:
     def __init__(self):
-        self.s = Display.Screen()
+        self.display = Display()
         self.offTimer = 15
         self.warning = 5
         self.key0 = Pin(15, Pin.IN, Pin.PULL_UP)
         self.key1 = Pin(17, Pin.IN, Pin.PULL_UP)
-        self.hc = int(self.s.width/2)
-        self.vc = int(self.s.height/2)
+        self.hc = int(self.display.HALF_WIDTH)
+        self.vc = int(self.display.HALF_HEIGHT)
         self.rotSpeed = 10
         self.isContinue = True
         self.anyKey = True
@@ -28,23 +31,23 @@ class Game:
         self.firedLastFrame = False
 
     def run(self):
-        self.s.fill(self.s.black)
-        self.s.show()
-        self.s.center("Asteroids", 16, self.s.white )
+        self.display.fill(self.display.black)
+        self.display.show()
+        self.display.center("Asteroids", 16, self.display.white )
         time.sleep(.1)
-        self.s.center("Ready?", 32, self.s.white )
+        self.display.center("Ready?", 32, self.display.white )
 
         while(self.anyKey):
             if self.key0.value() == 0 or self.key1.value() == 0:
-                self.s.fill(self.s.black)
-                self.s.show()
+                self.display.fill(self.display.black)
+                self.display.show()
                 self.anyKey = False
 
-        stars = Asteroids.Stars(self.s)
-        ship = Asteroids.Ship(self.s)
+        stars = Stars(self.display)
+        ship = Ship(self.display)
 
         while(self.isContinue):
-            self.s.fill(self.s.black)
+            self.display.fill(self.display.black)
             stars.update()
             self.check_input()
             self.angle += self.direction
@@ -52,26 +55,25 @@ class Game:
             self.update_bullets()
             self.update_asteroids()
             self.check_collisions()
-            self.s.show()
+            self.display.show()
             if self.quitCount:
                 self.quitTimer = self.offTimer
                 if self.wasOff:
                     self.wasOff = False
             self.quitCount = True
-            gc.collect()
 
     def check_input(self):
         if self.key0.value() == 0 and self.key1.value() == 0:
             if not self.firedLastFrame:
-                self.bullets.append(Asteroids.Bullet(self.angle, self.s))
+                self.bullets.append(Bullet(self.angle, self.display))
                 self.firedLastFrame = True
             else:
                 self.firedLastFrame = False
             self.quitTimer-=1
             self.quitCount = False
             if self.quitTimer <= self.warning:
-                self.s.fill_rect(0,22,128,20,self.s.white)
-                self.s.center("Powering off", 27, self.s.black)
+                self.display.fill_rect(0,22,128,20,self.display.white)
+                self.display.center("Powering off", 27, self.display.black)
                 self.wasOff = True
                 if self.quitTimer <= 0:
                     self.isContinue = False   
@@ -89,7 +91,7 @@ class Game:
 
     def update_asteroids(self):
         if len(self.asteroids) < 4:
-            self.asteroids.append(Asteroids.Asteroid(self.s, 6))
+            self.asteroids.append(Asteroid(self.display, AsteroidStats.init(random.randint(6, Asteroid.MAX_SIZE))))
         for a in self.asteroids:
             if not a.update():
                 self.asteroids.remove(a)
@@ -100,12 +102,11 @@ class Game:
             for a in list(self.asteroids):
                 if b.hit:
                     continue
-                if a.checkColision(b.pos):
+                if a.check_collision(b.position):
                     b.hit = True
                     self.asteroids.remove(a)
                     self.bullets.remove(b)
-                    for i in range(2):
-                        self.asteroids.append(Asteroids.Asteroid(self.s, 4, True, b.pos))            
+                    self.asteroids.extend(Collision(a, b).create_fragments())
 
 if __name__=='__main__':
     game = Game()
